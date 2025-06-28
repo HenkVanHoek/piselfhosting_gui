@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="left-panel w-full md:w-auto p-4 md:p-6 bg-gray-50 md:bg-gray-100 border-b md:border-b-0 md:border-r border-gray-200">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">Components</h2>
+    <div class="mb-4">
+        <a href="{{ url_for('add_component') }}" class="btn-primary w-full block text-center py-2 px-4 rounded-md">
+            <i class="fas fa-plus mr-2"></i> New Component
+        </a>
+    </div>
+    <ul class="space-y-2">
+        {% for component_id, component in components.items() %}
+        <li class="component-list-item {% if component_id == request.args.get('selected_id') %}selected{% endif %}">
+            <a href="{{ url_for('edit_component', component_id=component_id) }}" class="flex-grow text-blue-700 hover:text-blue-900 font-semibold">
+                {{ component.name }}
+            </a>
+            <div class="flex space-x-2">
+                {% if component.get('has_ui') %}
+                    <span class="text-sm text-gray-500" title="Has Web Interface">🌐</span>
+                {% endif %}
+                {% if component.get('is_reverse_proxy') %}
+                    <span class="text-sm text-gray-500" title="Is Reverse Proxy">🔄</span>
+                {% endif %}
+                <form action="{{ url_for('delete_component', component_id=component_id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete {{ component.name }}?');">
+                    <button type="submit" class="text-red-500 hover:text-red-700 text-sm" title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>
+            </div>
+        </li>
+        {% else %}
+        <p class="text-gray-600">No components added yet.</p>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="right-panel w-full p-4 md:p-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} mb-4" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">Welcome to the PiSelfhosting Component Management GUI</h1>
+    <p class="text-gray-700 mb-6">
+        Use this application to manage the metadata of your PiSelfhosting components.
+        Select a component on the left to edit its details, or add a new component.
+    </p>
+
+    <div class="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg shadow-sm">
+        <h3 class="font-semibold text-lg mb-2"><i class="fas fa-info-circle mr-2"></i> Important Notes:</h3>
+        <ul class="list-disc list-inside text-sm space-y-1">
+            <li>Each Component ID must be unique and can only contain lowercase letters, numbers, and hyphens.</li>
+            <li>If a component has a Web Interface, the UI Port, Protocol, Icon, Dashy Section, and Dashy URL Suffix fields are mandatory.</li>
+            <li>**The UI Port must be unique for all components with a Web Interface.**</li>
+            <li>**Only one component can be marked as 'Is Reverse Proxy'.**</li>
+            <li>After editing, save to store changes to the <code>components_metadata.json</code> file.</li>
+            <li>After saving changes, you must run your `piselfhosting_installer.py` Orchestrator to push the updates to your Raspberry Pi and reconfigure the services.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

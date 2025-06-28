@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="left-panel w-full md:w-auto p-4 md:p-6 bg-gray-50 md:bg-gray-100 border-b md:border-b-0 md:border-r border-gray-200">
+    <h2 class="text-xl font-bold mb-4 text-gray-700">Components</h2>
+    <div class="mb-4">
+        <a href="{{ url_for('add_component') }}" class="btn-primary w-full block text-center py-2 px-4 rounded-md">
+            <i class="fas fa-plus mr-2"></i> New Component
+        </a>
+    </div>
+    <ul class="space-y-2">
+        {% for comp_id, comp_data in manager.get_all_components().items() %}
+        <li class="component-list-item {% if comp_id == component_id %}selected{% endif %}">
+            <a href="{{ url_for('edit_component', component_id=comp_id) }}" class="flex-grow text-blue-700 hover:text-blue-900 font-semibold">
+                {{ comp_data.name }}
+            </a>
+            <div class="flex space-x-2">
+                {% if comp_data.get('has_ui') %}
+                    <span class="text-sm text-gray-500" title="Has Web Interface">🌐</span>
+                {% endif %}
+                {% if comp_data.get('is_reverse_proxy') %}
+                    <span class="text-sm text-gray-500" title="Is Reverse Proxy">🔄</span>
+                {% endif %}
+                <form action="{{ url_for('delete_component', component_id=comp_id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete {{ comp_data.name }}?');">
+                    <button type="submit" class="text-red-500 hover:text-red-700 text-sm" title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>
+            </div>
+        </li>
+        {% else %}
+        <p class="text-gray-600">No components added yet.</p>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="right-panel w-full p-4 md:p-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} mb-4" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">
+        {% if mode == 'add' %}Add New Component{% else %}Edit Component: {{ component.name }}{% endif %}
+    </h1>
+
+    <form method="post" class="space-y-6">
+        <!-- General Tab -->
+        <div class="tabs">
+            <button type="button" class="tab-button active" onclick="openTab(event, 'general')">General</button>
+            <button type="button" class="tab-button" onclick="openTab(event, 'web_interface')">Web Interface (UI)</button>
+            <button type="button" class="tab-button" onclick="openTab(event, 'network_services')">Network & Services</button>
+        </div>
+
+        <div id="general" class="tab-content active bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">General Information</h2>
+            <div class="mb-4">
+                <label for="component_id" class="block text-gray-700 text-sm font-bold mb-2">Component ID (unique, lowercase, numbers, hyphens):</label>
+                <input type="text" id="component_id" name="component_id"
+                       value="{{ component_id if mode == 'edit' else '' }}"
+                       {% if mode == 'edit' %}readonly class="bg-gray-100 cursor-not-allowed"{% endif %}
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                {% if mode == 'add' %}
+                <p class="text-xs text-gray-500 mt-1">This is the unique key for the component (e.g., "portainer"). Cannot be changed after creation.</p>
+                {% endif %}
+            </div>
+            <div class="mb-4">
+                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Name:</label>
+                <input type="text" id="name" name="name" required
+                       value="{{ component.get('name', '') }}"
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label for="description" class="block text-gray-700 text-sm font-bold mb-2">Description:</label>
+                <textarea id="description" name="description" rows="3"
+                          class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">{{ component.get('description', '') }}</textarea>
+            </div>
+            <div class="mb-4 flex items-center">
+                <input type="checkbox" id="default_selected" name="default_selected"
+                       {% if component.get('default_selected') %}checked{% endif %}
+                       class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="default_selected" class="text-gray-700 text-sm font-bold">Default Selected for Setup</label>
+            </div>
+        </div>
+
+        <!-- Web Interface Tab -->
+        <div id="web_interface" class="tab-content bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Web Interface (UI)</h2>
+            <div class="mb-4 flex items-center">
+                <input type="checkbox" id="has_ui" name="has_ui"
+                       {% if component.get('has_ui') %}checked{% endif %}
+                       class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="has_ui" class="text-gray-700 text-sm font-bold">Has Web Interface</label>
+            </div>
+
+            <div id="ui_fields" class="space-y-4 {% if not component.get('has_ui') %}hidden{% endif %}">
+                <div class="mb-4">
+                    <label for="ui_port" class="block text-gray-700 text-sm font-bold mb-2">UI Port (unique):</label>
+                    <input type="number" id="ui_port" name="ui_port"
+                           value="{{ component.get('ui_port', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="protocol" class="block text-gray-700 text-sm font-bold mb-2">Protocol:</label>
+                    <select id="protocol" name="protocol"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="">-- Select Protocol --</option>
+                        <option value="http" {% if component.get('protocol') == 'http' %}selected{% endif %}>HTTP</option>
+                        <option value="https" {% if component.get('protocol') == 'https' %}selected{% endif %}>HTTPS</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="icon" class="block text-gray-700 text-sm font-bold mb-2">Icon (Font Awesome/Simple Icons class):</label>
+                    <input type="text" id="icon" name="icon"
+                           value="{{ component.get('icon', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <p class="text-xs text-gray-500 mt-1">E.g., <code>fas fa-anchor</code>, <code>si-nextcloud</code></p>
+                </div>
+                <div class="mb-4">
+                    <label for="dashy_tile_section" class="block text-gray-700 text-sm font-bold mb-2">Dashy Section:</label>
+                    <select id="dashy_tile_section" name="dashy_tile_section"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="">-- Select Section --</option>
+                        <option value="General Services" {% if component.get('dashy_tile_section') == 'General Services' %}selected{% endif %}>General Services</option>
+                        <option value="Smart Home" {% if component.get('dashy_tile_section') == 'Smart Home' %}selected{% endif %}>Smart Home</option>
+                        <option value="Network Services" {% if component.get('dashy_tile_section') == 'Network Services' %}selected{% endif %}>Network Services</option>
+                        <option value="Storage & Network" {% if component.get('dashy_tile_section') == 'Storage & Network' %}selected{% endif %}>Storage & Network</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="dashy_tile_url_suffix" class="block text-gray-700 text-sm font-bold mb-2">Dashy URL Suffix:</label>
+                    <input type="text" id="dashy_tile_url_suffix" name="dashy_tile_url_suffix"
+                           value="{{ component.get('dashy_tile_url_suffix', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <p class="text-xs text-gray-500 mt-1">E.g., <code>/</code>, <code>/admin</code>, <code>:8080</code>. This will be appended to your domain.</p>
+                </div>
+                <div class="mb-4 flex items-center">
+                    <input type="checkbox" id="status_check" name="status_check"
+                           {% if component.get('status_check') %}checked{% endif %}
+                           class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="status_check" class="text-gray-700 text-sm font-bold">Status Check (for Dashy)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network & Services Tab -->
+        <div id="network_services" class="tab-content bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Network & Services</h2>
+            <div class="mb-4 flex items-center">
+                <input type="checkbox" id="is_reverse_proxy" name="is_reverse_proxy"
+                       {% if component.get('is_reverse_proxy') %}checked{% endif %}
+                       class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label for="is_reverse_proxy" class="text-gray-700 text-sm font-bold">Is Reverse Proxy (Max 1 allowed)</label>
+            </div>
+            <!-- Additional fields for other ports/network settings can be added here -->
+            <p class="text-gray-600">
+                More network-related settings (e.g., additional ports) can be added here later.
+            </p>
+        </div>
+
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('index') }}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                {% if mode == 'add' %}<i class="fas fa-save mr-2"></i> Add{% else %}<i class="fas fa-edit mr-2"></i> Save{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
